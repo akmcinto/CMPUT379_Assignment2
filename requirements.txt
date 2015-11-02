@@ -1,0 +1,45 @@
+At any time, the user is allowed to change the configuration file to add, remove, or change any 
+line in the file
+
+The user is allowed to send a hangup signal (SIGHUP) to the parent procnanny process which forces 
+procnanny to re-read the configuration file (which has the same filename). 
+Then, the parent procnanny should print to both stdout and the logfile the message:
+	[Mon Jan 16 11:29:17 MST 2012] Info: Caught SIGHUP. Configuration file 'nanny.config' re-read.
+
+Any process currently being monitored will continue to be monitored even if the program name has 
+been removed from the current configuration file.
+
+Also, the user is allowed to send an interrupt signal (SIGINT) to the parent procnanny process 
+which forces procnanny to close any open files that it might have, kill each of its children (
+even if they are currently monitoring a process), and free up all resources (e.g., memory, 
+signals from children that have exited).
+Once all of the cleaning up has been completed, the parent procnanny process prints the following 
+output to both stdout and the logfile (note the count of the number of processes killed) and exits:
+	[Mon Jan 16 11:29:17 MST 2012] Info: Caught SIGINT. Exiting cleanly.  1 process(es) killed.
+
+Every 5 seconds, procnanny checks all processes on the system that belong to the user running the 
+program (i.e., do not hardcode the username). If one of these processes is running a monitored 
+program, as specified by the configuration file, then procnanny will tell a child process to 
+continue overseeing the monitored process.
+The communication of information between parent and child processes should be implemented using 
+messages over Unix pipes.
+
+If a child process is not currently monitoring a process, the parent process should re-use that 
+child process. Note that a child procnanny process should not exit after it has finished 
+monitoring a process. Instead, the child process should block and wait for further instructions 
+from the parent. And, the parent procnanny process should never fork a new child process if an 
+existing child process is available to do the monitoring. The only time a child process should 
+exit is if the parent process has received a SIGINT signal and is now telling all the child 
+processes to exit.
+Basically, the child procnanny process executes an infinite loop where it waits for instructions 
+from the parent, follows the instructions, and then waits for further instructions. If the 
+instruction is a PID to monitor, then the child monitors the process. If the child receives a 
+PID value of -1, then the child exits.
+
+Clarifications:
+- After recieving SIGINT, do the child processes kill the processes they are monitoring?  Yes
+
+- How does the parent checking running processes every 5 seconds work?  Have child check for 
+info after every 5 seconds
+
+- SIGHUP: leave previous monitorings, just treat re-read like a new execution
