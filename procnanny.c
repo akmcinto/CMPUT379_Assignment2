@@ -11,12 +11,6 @@
 void killprevprocnanny( void );
 void runmonitoring( char *, FILE * );
 
-pid_t childpids[128];
-int childcount = 0;
-time_t currtime;
-pid_t freechildren[128];
-int freecount = 0;
-
 int main(int argc, char *argv[])
 {
   mwInit();
@@ -25,44 +19,12 @@ int main(int argc, char *argv[])
   char *logloc = getenv("PROCNANNYLOGS");
   FILE *LOGFILE = fopen(logloc, "w");
 
-  int status = 0;
-  int killcount = 0;
-
   // kill any other procnannies
   killprevprocnanny();
 
   // Set up monitoring
   runmonitoring(argv[1], LOGFILE);
 
-  // end of proc name while loop
-  while (1) {
-    int i;
-    for (i = 0; i < childcount; i++) {
-      pid_t childstatus = waitpid(childpids[i], &status, WNOHANG);
-      if (childstatus == -1) {
-	printf("Error with waitpid!");
-      } else if (childstatus == 0) {
-	// Child still running
-      } else if (childstatus == childpids[i]) {
-	if (WEXITSTATUS(status) == 7) {
-	  killcount++;
-	}
-	// Add child pid to list of available ones
-	freechildren[freecount] = childpids[i];
-	freecount++;
-
-	// Remove child pid from list of running ones
-	childpids[i] = 0;
-	childcount--;
-      }
-    }
-  }
-
-  time(&currtime);
-  fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
-
-  //kill(pid, SIGTERM);
-  
   fflush(LOGFILE);
   fclose(LOGFILE); 
   mwTerm();
@@ -81,6 +43,20 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   pid_t pid;
   FILE *pp;
   pid_t procid;
+
+  pid_t childpids[128];
+  int childcount = 0;
+  time_t currtime;
+  pid_t freechildren[128];
+  int freecount = 0;
+  int status = 0;
+  int killcount = 0;
+
+  // Array for pipes
+  int pipefds[128][2];
+  ssize_t main_readreturn;
+  size_t returnmesssize = 7;
+  char rmessage[returnmesssize];
   
   // Check if there were actually any process with that name
   int entered; 
@@ -100,32 +76,49 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       
       fflush(LOGFILE);
 
+      // Open pipe - write to 1, read from 0
+      if pipe(pipefds[childcount] < 0) {
+	printf("Pipe error!");
+	}  else {
+	// Set pipe to no block on read
+	fcntl(pipefds[childcount], F_SETFL, O_NONBLOCK);
+      }
+
       if ((pid = fork()) < 0) {
 	printf("fork() error!");
       } 
 
       else if (pid == 0) {  // Child process
-	// Wait for amount of time
-	sleep(numsecs);
+        while (1) { // Run indefinitely
+	  
+	  if (procid == 0) { // procid = 0 means no new process to monitor
+	    read(fd[0], procid, 4);
+	  }
+	  // Wait for amount of time
+	  sleep(numsecs);
 	
-	// Kill monitored process
-	int killed = kill(procid, SIGKILL);
-	// If the process is actually killed, print to log
-	if (killed == 0) {
-	  time(&currtime);
-	  fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid, procname, numsecs);
-	  fflush(LOGFILE);
-	  exit(7); 
-	}
-	else {
-	  exit(8);
+	  // Kill monitored process
+	  int killed = kill(procid, SIGKILL);
+	  // If the process is actually killed, print to log
+	  if (killed == 0) {
+	    time(&currtime);
+	    fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid, procname, numsecs);
+	    fflush(LOGFILE);
+
+	    // Write to pipe then wait for a read
+	    write(fd[1], "killed\n", 7); 
+	  }
+	  else {
+	    write(fd[1], "nokill\n", 7); 
+	  }
 	}	
       } 
       else { // parent process
 	childpids[childcount] = pid;
 	childcount++;
-      }      
+      }         
     }
+
     // end of pid while loop
     if (entered == 0) {
       time(&currtime);
@@ -133,6 +126,33 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       fflush(LOGFILE);
     }
   }
+  // end of proc name while loop
+  int i;
+
+  while (1) {
+    for (i = 0; i < childcount; i++) {
+      main_readreturn = read(pipefds[childcount], rmessage, returnmesssize);
+      if (main_readreturn == -1) {
+	// No message yet
+      } else if (main_readreturn > 0) {
+	if (rmessage == "killed\n") {
+	  killcount++;
+	}
+	// Add child pid to list of available ones
+	freechildren[freecount] = childpids[i];
+	freecount++;
+
+	// Remove child pid from list of running ones
+	childpids[i] = 0;
+	childcount--;
+      } else {
+	// Pipe closed
+      }
+    }
+  }
+  time(&currtime);
+  fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+  
 }
 
 // kill any previous instances of procnanny
@@ -157,3 +177,4 @@ void killprevprocnanny() {
   }
   return;
 }
+
