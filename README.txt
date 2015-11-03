@@ -38,4 +38,3 @@ http://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/, 2015-10-05
 http://man7.org/linux/man-pages/man2/wait.2.html, 2015-10-06
 http://linux.die.net/man/2/waitpid, 2015-10-06
 http://www.cprogramming.com/tutorial/makefiles.html, 2015-10-06
-mob, http://stackoverflow.com/questions/4200373/just-check-status-process-in-c, 2015-11-01
