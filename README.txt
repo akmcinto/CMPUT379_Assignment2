@@ -41,3 +41,4 @@ http://www.cprogramming.com/tutorial/makefiles.html, 2015-10-06
 mob, http://stackoverflow.com/questions/4200373/just-check-status-process-in-c, 2015-11-01
 http://beginnersbook.com/2014/01/2d-arrays-in-c-example/, 2015-11-03
 Matt Joiner, http://stackoverflow.com/questions/1735781/non-blocking-pipe-using-popen, 2015-11-03
+http://www.tutorialspoint.com/c_standard_library/c_function_strcmp.htm, 2015-11-03

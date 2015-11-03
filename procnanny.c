@@ -6,6 +6,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "memwatch.h"
 
 void killprevprocnanny( void );
@@ -49,7 +50,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   time_t currtime;
   pid_t freechildren[128];
   int freecount = 0;
-  int status = 0;
+    //int status = 0;
   int killcount = 0;
 
   // Array for pipes
@@ -77,11 +78,11 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       fflush(LOGFILE);
 
       // Open pipe - write to 1, read from 0
-      if pipe(pipefds[childcount] < 0) {
+      if (pipe(pipefds[childcount]) < 0) {
 	printf("Pipe error!");
 	}  else {
 	// Set pipe to no block on read
-	fcntl(pipefds[childcount], F_SETFL, O_NONBLOCK);
+	fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
       }
 
       if ((pid = fork()) < 0) {
@@ -92,7 +93,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
         while (1) { // Run indefinitely
 	  
 	  if (procid == 0) { // procid = 0 means no new process to monitor
-	    read(fd[0], procid, 4);
+	    read(pipefds[childcount][0], &procid, 4);
 	  }
 	  // Wait for amount of time
 	  sleep(numsecs);
@@ -106,10 +107,10 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	    fflush(LOGFILE);
 
 	    // Write to pipe then wait for a read
-	    write(fd[1], "killed\n", 7); 
+	    write(pipefds[childcount][1], "killed\n", 7); 
 	  }
 	  else {
-	    write(fd[1], "nokill\n", 7); 
+	    write(pipefds[childcount][1], "nokill\n", 7); 
 	  }
 	}	
       } 
@@ -128,14 +129,13 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   }
   // end of proc name while loop
   int i;
-
   while (1) {
     for (i = 0; i < childcount; i++) {
-      main_readreturn = read(pipefds[childcount], rmessage, returnmesssize);
+      main_readreturn = read(pipefds[childcount][0], rmessage, returnmesssize);
       if (main_readreturn == -1) {
 	// No message yet
       } else if (main_readreturn > 0) {
-	if (rmessage == "killed\n") {
+	if (strcmp(rmessage, "killed\n") == 0) {
 	  killcount++;
 	}
 	// Add child pid to list of available ones
