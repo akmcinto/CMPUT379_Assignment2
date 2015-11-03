@@ -1,0 +1,142 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <time.h>
+#include <string.h>
+#include <unistd.h>
+#include "memwatch.h"
+
+void killprevprocnanny( void );
+void runmonitoring( char *, FILE * );
+
+pid_t childpids[128];
+int childcount = 0;
+time_t currtime;
+
+int main(int argc, char *argv[])
+{
+  mwInit();
+
+  // Log file
+  char *logloc = getenv("PROCNANNYLOGS");
+  FILE *LOGFILE = fopen(logloc, "w");
+
+  int status = 0;
+  int killcount = 0;
+
+  // kill any other procnannies
+  killprevprocnanny();
+
+  // Set up monitoring
+  runmonitoring(argv[1], LOGFILE);
+
+  // end of proc name while loop
+  int i;
+  for (i = 0; i < childcount; i++) {
+    waitpid(childpids[i], &status, 0);
+    if (WEXITSTATUS(status) == 7) {
+      killcount++;
+    }
+  }
+
+  time(&currtime);
+  fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+
+  //kill(pid, SIGTERM);
+  
+  fflush(LOGFILE);
+  fclose(LOGFILE); 
+  mwTerm();
+  return 0;
+}
+
+void runmonitoring(char *cmdarg, FILE *LOGFILE) {
+  
+  // Open input file
+  FILE *f = fopen(cmdarg, "r");
+  
+  // Array for holding each line of the file read in
+  char procname[255]; // for saving read from file
+  char cmdline[269]; // for creating pgrep command (255 plus extra for command)
+  int numsecs;
+  pid_t pid;
+  FILE *pp;
+  pid_t procid;
+  
+  // Check if there were actually any process with that name
+  int entered; 
+
+  while (fscanf(f, "%s %d", procname, &numsecs) != EOF) {
+    // Find PIDs for the program
+    sprintf(cmdline, "ps -C %s -o pid=", procname);
+    pp = popen(cmdline, "r");
+
+    entered = 0;
+    while (fscanf(pp, "%d", &procid) != EOF) {
+      entered = 1;
+
+      // Initialize monitoring in log file
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname, procid);
+      
+      fflush(LOGFILE);
+
+      if ((pid = fork()) < 0) {
+	printf("fork() error!");
+      } 
+
+      else if (pid == 0) {  // Child process
+	// Wait for amount of time
+	sleep(numsecs);
+	
+	// Kill monitored process
+	int killed = kill(procid, SIGKILL);
+	// If the process is actually killed, print to log
+	if (killed == 0) {
+	  time(&currtime);
+	  fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid, procname, numsecs);
+	  fflush(LOGFILE);
+	  exit(7); 
+	}
+	else {
+	  exit(8);
+	}	
+      } 
+      else { // parent process
+	childpids[childcount] = pid;
+	childcount++;
+      }      
+    }
+    // end of pid while loop
+    if (entered == 0) {
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname);
+      fflush(LOGFILE);
+    }
+  }
+}
+
+// kill any previous instances of procnanny
+void killprevprocnanny() {
+  char pgrepcmd[20]; // for creating pgrep command (255 plus extra for command)
+  FILE *pni;
+  pid_t procnanid;
+  pid_t mypid = getpid();
+  int killval;
+
+  // Find PIDs for the program
+  sprintf(pgrepcmd, "pgrep %s", "procnanny");
+  pni = popen(pgrepcmd, "r");
+  
+  while (fscanf(pni, "%d", &procnanid) != EOF) {
+    if (procnanid != mypid) {
+      killval = kill(procnanid, SIGKILL);
+      if (killval != 0) {
+	printf("Failed to kill old procnanny process.\n");
+      }
+    }
+  }
+  return;
+}
