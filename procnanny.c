@@ -54,6 +54,9 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 
   // Array for pipes
   int pipefds[128][2];
+  ssize_t main_readreturn;
+  size_t returnmesssize = 7;
+  char rmessage[returnmesssize];
   
   // Check if there were actually any process with that name
   int entered; 
@@ -76,9 +79,10 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       // Open pipe - write to 1, read from 0
       if pipe(pipefds[childcount] < 0) {
 	printf("Pipe error!");
+	}  else {
+	// Set pipe to no block on read
+	fcntl(pipefds[childcount], F_SETFL, O_NONBLOCK);
       }
-      // Set pipe to no block on read
-      fcntl(pipefds[childcount], F_SETFL, O_NONBLOCK);
 
       if ((pid = fork()) < 0) {
 	printf("fork() error!");
@@ -105,7 +109,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	    write(fd[1], "killed\n", 7); 
 	  }
 	  else {
-	    write(fd[1], "no kill\n", 8); 
+	    write(fd[1], "nokill\n", 7); 
 	  }
 	}	
       } 
@@ -123,16 +127,15 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
     }
   }
   // end of proc name while loop
+  int i;
+
   while (1) {
-    int i;
     for (i = 0; i < childcount; i++) {
-      pid_t childstatus = waitpid(childpids[i], &status, WNOHANG);
-      if (childstatus == -1) {
-	printf("Error with waitpid!");
-      } else if (childstatus == 0) {
-	// Child still running
-      } else if (childstatus == childpids[i]) {
-	if (WEXITSTATUS(status) == 7) {
+      main_readreturn = read(pipefds[childcount], rmessage, returnmesssize);
+      if (main_readreturn == -1) {
+	// No message yet
+      } else if (main_readreturn > 0) {
+	if (rmessage == "killed\n") {
 	  killcount++;
 	}
 	// Add child pid to list of available ones
@@ -142,6 +145,8 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	// Remove child pid from list of running ones
 	childpids[i] = 0;
 	childcount--;
+      } else {
+	// Pipe closed
       }
     }
   }
