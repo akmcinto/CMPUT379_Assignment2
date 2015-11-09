@@ -12,9 +12,14 @@
 void killprevprocnanny( void );
 void runmonitoring( char *, FILE * );
 void forkfunc(pid_t procid, int numsecs, int pipefd[2]);
+int readconfigfile(char *cmdarg);
 
+// Global variable declarations
 pid_t childpids[128];
 int childcount = 0; // number of children currently monitoring a process
+
+char procname[128][255]; 
+int numsecs[128];
 
 int main(int argc, char *argv[])
 {
@@ -39,14 +44,16 @@ int main(int argc, char *argv[])
 void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   
   // Open input file
-  FILE *f = fopen(cmdarg, "r");
+  
   FILE *pp;
 
   // Array for holding each line of the file read in
   //char procname[255]; // for saving read from file
   //char savedprocnames[128][255]; // Array set after each read of the file, compared with current running procs
-  char procname[128][255]; 
-  int numsecs;
+  
+  char procnamesforlog[128][255];
+  
+  int numsecsperprocess[128]; // Will contain amounts of time per pid, not just process name
   //pid_t procid;
   //pid_t savedprocids[128]; // Processes children are monitoring
   pid_t procid[128];
@@ -65,13 +72,9 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   
   // Check if there were actually any process with that name
   int entered; 
-  int count = 0;
-
-  /* Reading from conig file */
-  while (fscanf(f, "%s %d", procname[count], &numsecs) != EOF) {
-    // Find PIDs for the program
-    count++;
-  }
+ 
+  int count = readconfigfile(cmdarg);
+  
 
   /* Checking for and monitoring processes */
   int k;
@@ -85,8 +88,10 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       // Initialize monitoring in log file
       time(&currtime);
       fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[childcount]);
-      
       fflush(LOGFILE);
+
+      memcpy(procnamesforlog[childcount], procname[k], 255);  
+      numsecsperprocess[childcount] = numsecs[k];      
 
       // Open pipe - write to 1, read from 0
       if (pipe(pipefds[childcount]) < 0) {
@@ -96,7 +101,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
       }   
 
-      forkfunc(procid[childcount], numsecs, pipefds[childcount]);
+      forkfunc(procid[childcount], numsecsperprocess[childcount], pipefds[childcount]);
   
     }
 
@@ -120,7 +125,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 
 	// Write message to logfile 
 	time(&currtime);
-	fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid[childcount], procname[childcount], numsecs);
+	fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid[childcount], procnamesforlog[childcount], numsecsperprocess[childcount]);
 	fflush(LOGFILE);
       }
       // Add child pid to list of available ones
@@ -174,6 +179,17 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2]) {
     childpids[childcount] = pid;
     childcount++;
   } 
+}
+
+int readconfigfile(char *cmdarg) {
+  int count = 0;
+  FILE *f = fopen(cmdarg, "r");
+  /* Reading from conig file */
+  while (fscanf(f, "%s %d", procname[count], &numsecs[count]) != EOF) {
+    // Find PIDs for the program
+    count++;
+  }
+  return count;
 }
 
 // kill any previous instances of procnanny
