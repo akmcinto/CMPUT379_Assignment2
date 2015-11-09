@@ -13,13 +13,16 @@ void killprevprocnanny( void );
 void runmonitoring( char *, FILE * );
 void forkfunc(pid_t procid, int numsecs, int pipefd[2]);
 int readconfigfile(char *cmdarg);
+int getpids(int numprocs, FILE *LOGFILE);
 
 // Global variable declarations
 pid_t childpids[128];
 int childcount = 0; // number of children currently monitoring a process
 
-char procname[128][255]; 
+char procname[128][255]; // for saving read from file
 int numsecs[128];
+
+pid_t procid[128]; // pids corresonding to each proces in config file
 
 int main(int argc, char *argv[])
 {
@@ -42,22 +45,15 @@ int main(int argc, char *argv[])
 }
 
 void runmonitoring(char *cmdarg, FILE *LOGFILE) {
-  
-  // Open input file
-  
-  FILE *pp;
 
   // Array for holding each line of the file read in
-  //char procname[255]; // for saving read from file
-  //char savedprocnames[128][255]; // Array set after each read of the file, compared with current running procs
-  
   char procnamesforlog[128][255];
   
   int numsecsperprocess[128]; // Will contain amounts of time per pid, not just process name
   //pid_t procid;
   //pid_t savedprocids[128]; // Processes children are monitoring
-  pid_t procid[128];
-  char cmdline[269]; // for creating pgrep command (255 plus extra for command)
+  
+  
   int freeindices[128]; // array of indices of children in childpids that are not monitoring any process
   int freeindex = -1; // End of the freeindices array.  -1 means no free children.
   
@@ -73,45 +69,37 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   // Check if there were actually any process with that name
   int entered; 
  
+  // Read each line of config file, count is number of lines read (number of process names)
   int count = readconfigfile(cmdarg);
+  // Get corrensponding pids
+  int pidcount = getpids(count, LOGFILE);
   
+  int j;
+  for (j = 0; j < pidcount; j++) {
+    // Initialize monitoring in log file
+    time(&currtime);
+    fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[pidcount], procid[childcount]);
+    fflush(LOGFILE);
 
-  /* Checking for and monitoring processes */
-  int k;
-  for (k = 0; k < count; k++) {
-    sprintf(cmdline, "ps -C %s -o pid=", procname[k]);
-    pp = popen(cmdline, "r");
-    entered = 0;
-    while (fscanf(pp, "%d", &procid[childcount]) != EOF) {
-      entered = 1;
-      
-      // Initialize monitoring in log file
-      time(&currtime);
-      fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[childcount]);
-      fflush(LOGFILE);
+    memcpy(procnamesforlog[childcount], procname[pidcount], 255);  
+    numsecsperprocess[childcount] = numsecs[pidcount];      
 
-      memcpy(procnamesforlog[childcount], procname[k], 255);  
-      numsecsperprocess[childcount] = numsecs[k];      
+    // Open pipe - write to 1, read from 0
+    if (pipe(pipefds[childcount]) < 0) {
+      printf("Pipe error!");
+    }  else {
+      // Set pipe to no block on read
+      fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
+    }   
 
-      // Open pipe - write to 1, read from 0
-      if (pipe(pipefds[childcount]) < 0) {
-	printf("Pipe error!");
-      }  else {
-	// Set pipe to no block on read
-	fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
-      }   
-
-      forkfunc(procid[childcount], numsecsperprocess[childcount], pipefds[childcount]);
-  
-    }
-
-    // end of pid while loop
-    if (entered == 0) {
-      time(&currtime);
-      fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[childcount]);
-      fflush(LOGFILE);
-    }
+    forkfunc(procid[childcount], numsecsperprocess[childcount], pipefds[childcount]);
   }
+
+  // end of pid while loop
+  //  if (entered == 0) {
+    
+  //}
+  
   // end of proc name while loop
   int i;
   //while (1) {
@@ -138,6 +126,8 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       // Pipe closed
     }
   }
+
+  
   //}
   time(&currtime);
   fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
@@ -152,7 +142,6 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2]) {
   if ((pid = fork()) < 0) {
     printf("fork() error!");
   } 
-
   else if (pid == 0) {  // Child process
     /*if (procid[childcount] == 0) { // procid = 0 means no new process to monitor
       read(pipefds[childcount][0], &procid[childcount], 4);
@@ -165,15 +154,12 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2]) {
     int killed = kill(procid, SIGKILL);
     // If the process is actually killed, print to log
     if (killed == 0) {
-      
-
       // Write to pipe then wait for a read
       write(pipefd[1], "killed\n", 7); 
     }
     else {
       write(pipefd[1], "nokill\n", 7); 
     }
-		
   } 
   else { // parent process
     childpids[childcount] = pid;
@@ -188,6 +174,32 @@ int readconfigfile(char *cmdarg) {
   while (fscanf(f, "%s %d", procname[count], &numsecs[count]) != EOF) {
     // Find PIDs for the program
     count++;
+  }
+  return count;
+}
+
+int getpids(int numprocs, FILE *LOGFILE) {
+  char cmdline[269]; // for creating pgrep command (255 plus extra for command)
+  int count = 0;
+  pid_t procid[128];
+  FILE *pp;
+
+  int k;
+  for (k = 0; k < numprocs; k++) {
+    sprintf(cmdline, "ps -C %s -o pid=", procname[k]);
+    pp = popen(cmdline, "r");
+    int entered = 0;
+    while (fscanf(pp, "%d", &procid[count]) != EOF) {
+      entered = 1;	
+      count++;
+    }
+    
+    if (entered == 0) {
+      time_t currtime;
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k]);
+      fflush(LOGFILE);
+    }
   }
   return count;
 }
