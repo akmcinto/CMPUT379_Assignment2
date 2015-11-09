@@ -13,7 +13,7 @@ void killprevprocnanny( void );
 void runmonitoring( char *, FILE * );
 void forkfunc(pid_t procid, int numsecs, int pipefd[2]);
 int readconfigfile(char *cmdarg);
-int getpids(int numprocs, FILE *LOGFILE);
+int getpids(char *procname, FILE *LOGFILE);
 
 // Global variable declarations
 pid_t childpids[128];
@@ -51,7 +51,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   
   int numsecsperprocess[128]; // Will contain amounts of time per pid, not just process name
   //pid_t procid;
-  //pid_t savedprocids[128]; // Processes children are monitoring
+  pid_t allprocids[128]; // Processes children are monitoring
   
   
   int freeindices[128]; // array of indices of children in childpids that are not monitoring any process
@@ -71,28 +71,33 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
  
   // Read each line of config file, count is number of lines read (number of process names)
   int count = readconfigfile(cmdarg);
-  // Get corrensponding pids
-  int pidcount = getpids(count, LOGFILE);
   
   int j;
-  for (j = 0; j < pidcount; j++) {
-    // Initialize monitoring in log file
-    time(&currtime);
-    fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[pidcount], procid[childcount]);
-    fflush(LOGFILE);
+  int k;
+  for (k = 0; k < count; k++) { // names
+    int pidcount = getpids(procname[k], LOGFILE);
+    for (j = 0; j < pidcount; j++) { // pids
 
-    memcpy(procnamesforlog[childcount], procname[pidcount], 255);  
-    numsecsperprocess[childcount] = numsecs[pidcount];      
+      // Get corrensponding pids
+      // Initialize monitoring in log file
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[j]);
+      fflush(LOGFILE);
 
-    // Open pipe - write to 1, read from 0
-    if (pipe(pipefds[childcount]) < 0) {
-      printf("Pipe error!");
-    }  else {
-      // Set pipe to no block on read
-      fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
-    }   
+      memcpy(procnamesforlog[j], procname[k], 255);  
+      numsecsperprocess[j] = numsecs[k];    
+      allprocids[j] = procid[j];
 
-    forkfunc(procid[childcount], numsecsperprocess[childcount], pipefds[childcount]);
+      // Open pipe - write to 1, read from 0
+      if (pipe(pipefds[j]) < 0) {
+	printf("Pipe error!");
+      }  else {
+	// Set pipe to no block on read
+	fcntl(*pipefds[j], F_SETFL, O_NONBLOCK);
+      }   
+
+      forkfunc(allprocids[j], numsecsperprocess[j], pipefds[j]);
+    }
   }
 
   // end of pid while loop
@@ -134,6 +139,26 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   fflush(LOGFILE);
 
   return;
+}
+
+int getpids(char *procname, FILE *LOGFILE) {
+  char cmdline[269]; // for creating pgrep command (255 plus extra for command)
+  int count = 0;
+  FILE *pp;
+
+  sprintf(cmdline, "ps -C %s -o pid=", procname);
+  pp = popen(cmdline, "r");
+  while (fscanf(pp, "%d", &procid[count]) != EOF) {	
+    count++;
+  }
+    
+  if (count == 0) {
+    time_t currtime;
+    time(&currtime);
+    fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname);
+    fflush(LOGFILE);
+  }
+  return count;
 }
 
 void forkfunc(pid_t procid, int numsecs, int pipefd[2]) {
@@ -178,31 +203,7 @@ int readconfigfile(char *cmdarg) {
   return count;
 }
 
-int getpids(int numprocs, FILE *LOGFILE) {
-  char cmdline[269]; // for creating pgrep command (255 plus extra for command)
-  int count = 0;
-  pid_t procid[128];
-  FILE *pp;
 
-  int k;
-  for (k = 0; k < numprocs; k++) {
-    sprintf(cmdline, "ps -C %s -o pid=", procname[k]);
-    pp = popen(cmdline, "r");
-    int entered = 0;
-    while (fscanf(pp, "%d", &procid[count]) != EOF) {
-      entered = 1;	
-      count++;
-    }
-    
-    if (entered == 0) {
-      time_t currtime;
-      time(&currtime);
-      fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k]);
-      fflush(LOGFILE);
-    }
-  }
-  return count;
-}
 
 // kill any previous instances of procnanny
 void killprevprocnanny() {
