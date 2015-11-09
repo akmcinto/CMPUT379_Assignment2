@@ -1,3 +1,5 @@
+Print out PID of parent process at start.
+
 At any time, the user is allowed to change the configuration file to add, remove, or change any 
 line in the file
 

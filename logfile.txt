@@ -1,2 +1,5 @@
-[Tue Nov  3 16:42:01 2015] Info: No 'testprog' process found.
-[Tue Nov  3 16:42:01 2015] Info: No 'vim' process found.
+[Sun Nov  8 15:48:45 2015] Info: No 'testprog' process found.
+[Sun Nov  8 15:48:45 2015] Info: Initializing monitoring of process vim (PID 2873).
+[Sun Nov  8 15:49:00 2015] Action: PID 2873 (vim) killed after exceeding 15 seconds.
+[Sun Nov  8 15:49:00 2015] Info: Exiting. 0 process(es) killed.
+[Sun Nov  8 15:49:16 2015] Info: Exiting. 0 process(es) killed.
