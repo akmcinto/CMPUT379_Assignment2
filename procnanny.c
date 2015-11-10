@@ -14,7 +14,8 @@ void runmonitoring( char *, FILE * );
 void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]);
 int readconfigfile(char *cmdarg);
 int getpids(char *procname, FILE *LOGFILE);
-void handlesighup( int );
+void handlesighup(int signum);
+void handlesigint(int signum);
 
 // Global variable declarations
 pid_t childpids[128];
@@ -29,6 +30,7 @@ size_t returnmesssize = sizeof(char)*7;
 
 // Signal flags
 int hupflag = 1;
+int inthandle = 0;
 
 int main(int argc, char *argv[])
 {
@@ -39,6 +41,7 @@ int main(int argc, char *argv[])
   FILE *LOGFILE = fopen(logloc, "w");
 
   signal(SIGHUP, handlesighup);
+  signal(SIGINT, handlesigint);
 
   // kill any other procnannies
   killprevprocnanny();
@@ -49,7 +52,7 @@ int main(int argc, char *argv[])
   fflush(LOGFILE);
   fclose(LOGFILE); 
   mwTerm();
-  return 0;
+  exit(0);
 }
 
 void runmonitoring(char *cmdarg, FILE *LOGFILE) {
@@ -74,9 +77,10 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 
   // Counter variables
   int i, j, k;
+  int count; // number of process names
+  int pidcount;
 
   while (1) {
-    int count;
     if (hupflag == 1) {
       count = readconfigfile(cmdarg);
       hupflag = 0;
@@ -84,7 +88,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 
     for (k = 0; k < count; k++) { // names
       // Get corrensponding pids
-      int pidcount = getpids(procname[k], LOGFILE);
+      pidcount = getpids(procname[k], LOGFILE);
 
       for (j = 0; j < pidcount; j++) { // pids
 	int monitored = 0;
@@ -97,7 +101,6 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	}
       
 	if (monitored == 0) { // if not monitored
-
 	  // Initialize monitoring in log file
 	  time(&currtime);
 	  fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[j]);
@@ -163,13 +166,23 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
     }
 
     sleep(5);
-  
   }
-  time(&currtime);
-  fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
-  fflush(LOGFILE);
 
-  return;
+  if (inthandle == 1) {
+    int o;
+    for (o = 0; o < childcount; o++) {
+      kill(childpids[o], SIGKILL);
+    }
+    for (o = 0; o < pidcount; o++) {
+      kill(procid[o], SIGKILL);
+      killcount++;
+    }
+
+    time(&currtime);
+    fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+    fflush(LOGFILE);
+    return;
+  }
 }
 
 void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
@@ -205,7 +218,7 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
     }
   } 
   else { // parent process
-    
+    childpids[childcount] = pid;
   } 
 }
 
@@ -267,7 +280,7 @@ void handlesighup(int signum) {
   hupflag = 1;
 }
 
-void handlesigint() {
-
+void handlesigint(int signum) {
+  inthandle = 1;
 }
 
