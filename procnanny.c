@@ -17,7 +17,7 @@ int getpids(char *procname, FILE *LOGFILE);
 
 // Global variable declarations
 pid_t childpids[128];
-int childcount = 0; // number of children currently monitoring a process
+int childcount; // number of children currently monitoring a process
 
 char procname[128][255]; // for saving read from file
 int numsecs[128];
@@ -45,95 +45,95 @@ int main(int argc, char *argv[])
 }
 
 void runmonitoring(char *cmdarg, FILE *LOGFILE) {
-
-  // Array for holding each line of the file read in
-  char procnamesforlog[128][255];
   
+  char procnamesforlog[128][255];  // Array for holding each line of the file read in
   int numsecsperprocess[128]; // Will contain amounts of time per pid, not just process name
-  //pid_t procid;
-  pid_t allprocids[128]; // Processes children are monitoring
-  
-  
+  pid_t allprocids[128]; // Processes children are monitoring  
   int freeindices[128]; // array of indices of children in childpids that are not monitoring any process
   int freeindex = -1; // End of the freeindices array.  -1 means no free children.
-  
   time_t currtime; // Time for log files
   int killcount = 0; // Total processes killed for final log output
-
   // Array for pipes
   int pipefds[128][2];
   ssize_t main_readreturn;
   size_t returnmesssize = 7;
   char rmessage[returnmesssize];
-  
-  // Check if there were actually any process with that name
-  int entered; 
  
   // Read each line of config file, count is number of lines read (number of process names)
   int count = readconfigfile(cmdarg);
-  
+
+  childcount = 0;
+
+  // Counter variables
+  int i;
   int j;
   int k;
-  for (k = 0; k < count; k++) { // names
-    int pidcount = getpids(procname[k], LOGFILE);
-    for (j = 0; j < pidcount; j++) { // pids
 
+  while (1) {
+    for (k = 0; k < count; k++) { // names
       // Get corrensponding pids
-      // Initialize monitoring in log file
-      time(&currtime);
-      fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[j]);
-      fflush(LOGFILE);
+      int pidcount = getpids(procname[k], LOGFILE);
 
-      memcpy(procnamesforlog[j], procname[k], 255);  
-      numsecsperprocess[j] = numsecs[k];    
-      allprocids[j] = procid[j];
+      for (j = 0; j < pidcount; j++) { // pids
+	int monitored = 0;
+	int m;
+	// Check if already monitored
+	for (m = 0; m < childcount; m++) {
+	  if (allprocids[m] == procid[j]) {
+	    monitored = 1;
+	    break;
+	  }
+	}
+      
+	if (monitored == 0) { // if not monitored
+	  // Initialize monitoring in log file
+	  time(&currtime);
+	  fprintf(LOGFILE, "[%.*s] Info: Initializing monitoring of process %s (PID %d).\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[k], procid[j]);
+	  fflush(LOGFILE);
 
-      // Open pipe - write to 1, read from 0
-      if (pipe(pipefds[j]) < 0) {
-	printf("Pipe error!");
-      }  else {
-	// Set pipe to no block on read
-	fcntl(*pipefds[j], F_SETFL, O_NONBLOCK);
-      }   
+	  memcpy(procnamesforlog[childcount], procname[k], 255);  
+	  numsecsperprocess[childcount] = numsecs[k];    
+	  allprocids[childcount] = procid[j];
 
-      forkfunc(allprocids[j], numsecsperprocess[j], pipefds[j]);
-    }
-  }
+	  // Open pipe - write to 1, read from 0
+	  if (pipe(pipefds[childcount]) < 0) {
+	    printf("Pipe error!");
+	  }  else {
+	    // Set pipe to no block on read
+	    fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);
+	  }   
 
-  // end of pid while loop
-  //  if (entered == 0) {
-    
-  //}
-  
-  // end of proc name while loop
-  int i;
-  //while (1) {
-  for (i = 0; i < childcount; i++) {
-    main_readreturn = read(pipefds[childcount][0], rmessage, returnmesssize);
-    if (main_readreturn == -1) {
-      // No message yet
-    } else if (main_readreturn > 0) {
-      if (strcmp(rmessage, "killed\n") == 0) {
-	killcount++;
-
-	// Write message to logfile 
-	time(&currtime);
-	fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid[childcount], procnamesforlog[childcount], numsecsperprocess[childcount]);
-	fflush(LOGFILE);
+	  forkfunc(allprocids[childcount], numsecsperprocess[childcount], pipefds[childcount]);
+	}
       }
-      // Add child pid to list of available ones
-
-
-      // Remove child pid from list of running ones
-      childpids[i] = 0;
-      childcount--;
-    } else {
-      // Pipe closed
     }
-  }
 
+    for (i = 0; i < childcount; i++) {
+      main_readreturn = read(pipefds[i][0], rmessage, returnmesssize);
+      if (main_readreturn == -1) {
+	// No message yet
+      } else if (main_readreturn > 0) {
+	if (strcmp(rmessage, "killed\n") == 0) {
+	  killcount++;
+
+	  // Write message to logfile 
+	  time(&currtime);
+	  fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procid[i], procnamesforlog[i], numsecsperprocess[i]);
+	  fflush(LOGFILE);
+	}
+	// Add child pid to list of available ones
+
+
+	// Remove child pid from list of running ones
+	//childpids[i] = 0;
+      } else {
+	// Pipe closed
+      }
+    }
+
+    sleep(5);
   
-  //}
+  }
   time(&currtime);
   fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
   fflush(LOGFILE);

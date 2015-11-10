@@ -1,4 +1,18 @@
-[Mon Nov  9 14:59:22 2015] Info: No 'testprog' process found.
-[Mon Nov  9 14:59:22 2015] Info: No 'vim' process found.
-[Mon Nov  9 14:59:22 2015] Info: No 'mousepad' process found.
-[Mon Nov  9 14:59:22 2015] Info: Exiting. 0 process(es) killed.
+[Mon Nov  9 17:47:20 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:20 2015] Info: Initializing monitoring of process vim (PID 5250).
+[Mon Nov  9 17:47:20 2015] Info: No 'mousepad' process found.
+[Mon Nov  9 17:47:25 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:25 2015] Info: No 'mousepad' process found.
+[Mon Nov  9 17:47:30 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:30 2015] Info: No 'mousepad' process found.
+[Mon Nov  9 17:47:35 2015] Info: Initializing monitoring of process mousepad (PID 5580).
+[Mon Nov  9 17:47:35 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:35 2015] Info: No 'vim' process found.
+[Mon Nov  9 17:47:35 2015] Info: Initializing monitoring of process mousepad (PID 5580).
+[Mon Nov  9 17:47:35 2015] Action: PID 5580 (vim) killed after exceeding 15 seconds.
+[Mon Nov  9 17:47:40 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:40 2015] Info: No 'vim' process found.
+[Mon Nov  9 17:47:40 2015] Info: No 'mousepad' process found.
+[Mon Nov  9 17:47:40 2015] Info: No 'testprog' process found.
+[Mon Nov  9 17:47:40 2015] Info: No 'vim' process found.
+[Mon Nov  9 17:47:40 2015] Info: No 'mousepad' process found.
