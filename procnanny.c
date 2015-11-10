@@ -166,22 +166,20 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
     }
 
     sleep(5);
-  }
+  
+    if (inthandle == 1) {
+      int o;
+      for (o = 0; o < childcount; o++) {
+	kill(childpids[o], SIGKILL);
+	int killed = kill(allprocids[o], SIGKILL);
+	if (killed == 0) { killcount++; }
+      }
 
-  if (inthandle == 1) {
-    int o;
-    for (o = 0; o < childcount; o++) {
-      kill(childpids[o], SIGKILL);
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+      fflush(LOGFILE);
+      return;
     }
-    for (o = 0; o < pidcount; o++) {
-      kill(procid[o], SIGKILL);
-      killcount++;
-    }
-
-    time(&currtime);
-    fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
-    fflush(LOGFILE);
-    return;
   }
 }
 
@@ -195,9 +193,7 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
     while (1) {
       while (procid == 0) { // procid = 0 means no new process to monitor
 	read(pipefd[0], &procid, sizeof(pid_t));
-	//printf("%d\n", procid);
 	read(pipefd[0], &numsecs, sizeof(int));
-      	//printf("%d\n", numsecs);
       }
 
       // Wait for amount of time
