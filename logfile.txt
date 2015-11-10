@@ -1,4 +1,13 @@
-[Tue Nov 10 13:16:47 2015] Info: Parent process is PID 4789
-[Tue Nov 10 13:16:47 2015] Info: No 'testprog' process found.
-[Tue Nov 10 13:16:47 2015] Info: Initializing monitoring of process vim (PID 4788).
-[Tue Nov 10 13:16:55 2015] Info: Caught SIGINT.  Exiting cleanly. 0 process(es) killed.
+[Tue Nov 10 15:45:34 2015] Info: Parent process is PID 6014
+[Tue Nov 10 15:45:34 2015] Info: No 'testprog' process found.
+[Tue Nov 10 15:45:34 2015] Info: Initializing monitoring of process vim (PID 6012).
+[Tue Nov 10 15:45:50 2015] Action: PID 6012 (vim) killed after exceeding 15 seconds.
+[Tue Nov 10 15:45:50 2015] Info: No 'vim' process found.
+[Tue Nov 10 15:46:10 2015] Info: Initializing monitoring of process vim (PID 6059).
+[Tue Nov 10 15:46:25 2015] Action: PID 6059 (vim) killed after exceeding 15 seconds.
+[Tue Nov 10 15:46:25 2015] Info: Caught SIGHUP.  Configuration file 'a2_test_file' re-read.
+[Tue Nov 10 15:46:30 2015] Info: Initializing monitoring of process vim (PID 6080).
+[Tue Nov 10 15:46:35 2015] Info: Initializing monitoring of process vim (PID 6085).
+[Tue Nov 10 15:46:40 2015] Action: PID 6080 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 15:46:45 2015] Action: PID 6085 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 15:46:57 2015] Info: Caught SIGINT.  Exiting cleanly. 4 process(es) killed.

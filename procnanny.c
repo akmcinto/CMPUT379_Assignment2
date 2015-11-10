@@ -82,6 +82,30 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   int pidcount;
 
   while (1) {
+
+    for (i = 0; i < childcount; i++) {
+      main_readreturn = read(returnpipefds[i][0], rmessage, returnmesssize);
+      if (main_readreturn == -1) {
+	// No message yet
+
+      } else if (main_readreturn > 0) {
+	if (strcmp(rmessage, "killed\n") == 0) {
+	  killcount++;
+	  // Write message to logfile 
+	  time(&currtime);
+	  fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), allprocids[i], procnamesforlog[i], numsecsperprocess[i]);
+	  fflush(LOGFILE);
+	}
+	// Add child pid to list of available ones
+	freeindex++;
+	freeindices[freeindex] = i;
+	// Remove child pid from list of running ones
+	allprocids[i] = 0;
+      } else {
+	// Pipe closed
+      }
+    }
+
     // Read each line of config file, count is number of lines read (number of process names)
     if (hupflag == 1) {
       if (hupmess == 1) {
@@ -129,14 +153,12 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
 	    
 	    if (pipe(pipefds[childcount]) < 0) { // Open pipe for parent to write to child - write to 1, read from 0
 	      printf("Pipe error!");
-	    }  else {
-	      fcntl(*pipefds[childcount], F_SETFL, O_NONBLOCK);// Set pipe to no block on read
 	    }   
 	    
 	    if (pipe(returnpipefds[childcount]) < 0) { // Set pipe for child to write to parent
 	      printf("Pipe error!");
 	    }  else {
-	      fcntl(*returnpipefds[childcount], F_SETFL, O_NONBLOCK); // Set pipe to no block on read
+	      fcntl(*returnpipefds[childcount], F_SETFL, O_NONBLOCK); // Set pipe to not block on read
 	    }   
 	    memcpy(procnamesforlog[childcount], procname[k], 255);  
 	    numsecsperprocess[childcount] = numsecs[k];    
@@ -150,37 +172,16 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       }
     }
 
-    for (i = 0; i < childcount; i++) {
-      main_readreturn = read(returnpipefds[i][0], rmessage, returnmesssize);
-      if (main_readreturn == -1) {
-	// No message yet
-
-      } else if (main_readreturn > 0) {
-	if (strcmp(rmessage, "killed\n") == 0) {
-	  killcount++;
-	  // Write message to logfile 
-	  time(&currtime);
-	  fprintf(LOGFILE, "[%.*s] Action: PID %d (%s) killed after exceeding %d seconds.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), allprocids[i], procnamesforlog[i], numsecsperprocess[i]);
-	  fflush(LOGFILE);
-	}
-	// Add child pid to list of available ones
-	freeindex++;
-	freeindices[freeindex] = i;
-	// Remove child pid from list of running ones
-	allprocids[i] = 0;
-	write(pipefds[i][1], &allprocids[i], sizeof(pid_t)); 
-
-      } else {
-	// Pipe closed
-      }
-    }
-
     sleep(5);
   
     if (inthandle == 1) {
       int o;
       for (o = 0; o < childcount; o++) {
 	kill(childpids[o], SIGKILL);
+	close(pipefds[childcount][0]);
+	close(pipefds[childcount][1]);
+	close(returnpipefds[childcount][0]);
+	close(returnpipefds[childcount][1]);
       }
 
       time(&currtime);
@@ -205,11 +206,6 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
   } 
   else if (pid == 0) {  // Child process
     while (1) {
-      while (procid == 0) { // procid = 0 means no new process to monitor
-	read(pipefd[0], &procid, sizeof(pid_t));
-	read(pipefd[0], &numsecs, sizeof(int));
-      }
-
       // Wait for amount of time
       sleep(numsecs);
 	
@@ -225,6 +221,9 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
       }
       
       procid = 0;
+
+      read(pipefd[0], &procid, sizeof(pid_t));
+      read(pipefd[0], &numsecs, sizeof(int));
     }
   } 
   else { // parent process
@@ -243,25 +242,25 @@ int getpids(char procname[128][255], int index, FILE *LOGFILE) {
     count++;
   }
     
+  int p;
+  int recorded = 0;
   if (count == 0) {
-    /*    for (p = 0; p < namecount; p++) {
-      if (procname == alreadyreported[p]) {
+    for (p = 0; p < 128; p++) {
+      if (strcmp(procname[index], alreadyreported[p]) == 0) {
 	recorded = 1;
       }
-      }*/
-    if (strcmp(procname[index], alreadyreported[index]) != 0) {
+    }
+    if (recorded == 0) {
       time_t currtime;
       time(&currtime);
       fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[index]);
       fflush(LOGFILE);
       memcpy(alreadyreported[index], procname[index], 255);
     }
-  } else {
-    char *blank = "";
-    memcpy(alreadyreported[index], blank, 255);
   }
   return count;
 }
+
 
 int readconfigfile(char *cmdarg) {
   int count = 0;
