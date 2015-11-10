@@ -43,3 +43,4 @@ http://beginnersbook.com/2014/01/2d-arrays-in-c-example/, 2015-11-03
 Matt Joiner, http://stackoverflow.com/questions/1735781/non-blocking-pipe-using-popen, 2015-11-03
 http://www.tutorialspoint.com/c_standard_library/c_function_strcmp.htm, 2015-11-03
 NPE, http://stackoverflow.com/questions/10625852/error-in-assigning-an-array-to-the-other-in-c, 2015-11-08
+http://www.tutorialspoint.com/c_standard_library/c_function_signal.htm, 2015-11-10
