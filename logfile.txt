@@ -1,6 +1,4 @@
-[Tue Nov 10 10:48:54 2015] Info: No 'testprog' process found.
-[Tue Nov 10 10:48:54 2015] Info: Initializing monitoring of process vim (PID 2583).
-[Tue Nov 10 10:48:54 2015] Info: No 'mousepad' process found.
-[Tue Nov 10 10:48:59 2015] Info: No 'testprog' process found.
-[Tue Nov 10 10:48:59 2015] Info: No 'mousepad' process found.
-[Tue Nov 10 10:49:03 2015] Info: Exiting. 1 process(es) killed.
+[Tue Nov 10 13:16:47 2015] Info: Parent process is PID 4789
+[Tue Nov 10 13:16:47 2015] Info: No 'testprog' process found.
+[Tue Nov 10 13:16:47 2015] Info: Initializing monitoring of process vim (PID 4788).
+[Tue Nov 10 13:16:55 2015] Info: Caught SIGINT.  Exiting cleanly. 0 process(es) killed.

@@ -13,7 +13,7 @@ void killprevprocnanny( void );
 void runmonitoring( char *, FILE * );
 void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]);
 int readconfigfile(char *cmdarg);
-int getpids(char *procname, FILE *LOGFILE);
+int getpids(char procname[128][255], int index, FILE *LOGFILE);
 void handlesighup(int signum);
 void handlesigint(int signum);
 
@@ -25,11 +25,14 @@ char procname[128][255]; // for saving read from file
 int numsecs[128];
 
 pid_t procid[128]; // pids corresonding to each proces in config file
+
+char alreadyreported[128][255];  // Saved names of programs already reported to not have any processes
   
 size_t returnmesssize = sizeof(char)*7;
 
 // Signal flags
 int hupflag = 1;
+int hupmess = 0;
 int inthandle = 0;
 
 int main(int argc, char *argv[])
@@ -49,9 +52,6 @@ int main(int argc, char *argv[])
   // Set up monitoring
   runmonitoring(argv[1], LOGFILE);
 
-  fflush(LOGFILE);
-  fclose(LOGFILE); 
-  mwTerm();
   exit(0);
 }
 
@@ -69,10 +69,11 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   int returnpipefds[128][2];
   ssize_t main_readreturn;
   char rmessage[returnmesssize];
- 
-  // Read each line of config file, count is number of lines read (number of process names)
-  
 
+  time(&currtime);
+  fprintf(LOGFILE, "[%.*s] Info: Parent process is PID %d\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), getpid());
+  fflush(LOGFILE);
+  
   childcount = 0;
 
   // Counter variables
@@ -81,14 +82,23 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   int pidcount;
 
   while (1) {
+    // Read each line of config file, count is number of lines read (number of process names)
     if (hupflag == 1) {
+      if (hupmess == 1) {
+	time(&currtime);
+	fprintf(LOGFILE, "[%.*s] Info: Caught SIGHUP.  Configuration file '%s' re-read.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), cmdarg);
+	fflush(LOGFILE);
+
+	printf("[%.*s] Info: Caught SIGHUP.  Configuration file '%s' re-read.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), cmdarg);
+	hupmess = 0;
+      }
       count = readconfigfile(cmdarg);
       hupflag = 0;
     }
 
     for (k = 0; k < count; k++) { // names
       // Get corrensponding pids
-      pidcount = getpids(procname[k], LOGFILE);
+      pidcount = getpids(procname, k, LOGFILE);
 
       for (j = 0; j < pidcount; j++) { // pids
 	int monitored = 0;
@@ -171,14 +181,18 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
       int o;
       for (o = 0; o < childcount; o++) {
 	kill(childpids[o], SIGKILL);
-	int killed = kill(allprocids[o], SIGKILL);
-	if (killed == 0) { killcount++; }
       }
 
       time(&currtime);
-      fprintf(LOGFILE, "[%.*s] Info: Exiting. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+      fprintf(LOGFILE, "[%.*s] Info: Caught SIGINT.  Exiting cleanly. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
       fflush(LOGFILE);
-      return;
+
+      printf("[%.*s] Info: Caught SIGINT.  Exiting cleanly. %d process(es) killed.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), killcount);
+      
+      fflush(LOGFILE);
+      fclose(LOGFILE); 
+      mwTerm();
+      exit(0);
     }
   }
 }
@@ -218,22 +232,33 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
   } 
 }
 
-int getpids(char *procname, FILE *LOGFILE) {
+int getpids(char procname[128][255], int index, FILE *LOGFILE) {
   char cmdline[269]; // for creating pgrep command (255 plus extra for command)
   int count = 0;
   FILE *pp;
 
-  sprintf(cmdline, "ps -C %s -o pid=", procname);
+  sprintf(cmdline, "ps -C %s -o pid=", procname[index]);
   pp = popen(cmdline, "r");
   while (fscanf(pp, "%d", &procid[count]) != EOF) {	
     count++;
   }
     
   if (count == 0) {
-    time_t currtime;
-    time(&currtime);
-    fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname);
-    fflush(LOGFILE);
+    /*    for (p = 0; p < namecount; p++) {
+      if (procname == alreadyreported[p]) {
+	recorded = 1;
+      }
+      }*/
+    if (strcmp(procname[index], alreadyreported[index]) != 0) {
+      time_t currtime;
+      time(&currtime);
+      fprintf(LOGFILE, "[%.*s] Info: No '%s' process found.\n", (int) strlen(ctime(&currtime))-1, ctime(&currtime), procname[index]);
+      fflush(LOGFILE);
+      memcpy(alreadyreported[index], procname[index], 255);
+    }
+  } else {
+    char *blank = "";
+    memcpy(alreadyreported[index], blank, 255);
   }
   return count;
 }
@@ -274,6 +299,7 @@ void killprevprocnanny() {
 
 void handlesighup(int signum) {
   hupflag = 1;
+  hupmess = 1;
 }
 
 void handlesigint(int signum) {
