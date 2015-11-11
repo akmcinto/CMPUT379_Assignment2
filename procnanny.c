@@ -18,7 +18,7 @@ void handlesighup(int signum);
 void handlesigint(int signum);
 
 // Global variable declarations
-pid_t childpids[128];
+pid_t childpids[128]; // Save pids of all existing child processes
 int childcount; // number of children currently monitoring a process
 
 char procname[128][255]; // for saving read from file
@@ -28,7 +28,7 @@ pid_t procid[128]; // pids corresonding to each proces in config file
 
 char alreadyreported[128][255];  // Saved names of programs already reported to not have any processes
   
-size_t returnmesssize = sizeof(char)*7;
+size_t returnmesssize = sizeof(char)*7;  // Size of message child pipes to parent
 
 // Signal flags
 int hupflag = 1;
@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
   exit(0);
 }
 
+// Read config file, monitor pids, handle signals, print info to log file
 void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   
   char procnamesforlog[128][255];  // Array for holding each line of the file read in
@@ -198,6 +199,7 @@ void runmonitoring(char *cmdarg, FILE *LOGFILE) {
   }
 }
 
+// Function handling forking code, child process logic
 void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
   pid_t pid;
 
@@ -231,6 +233,7 @@ void forkfunc(pid_t procid, int numsecs, int pipefd[2], int returnpipefd[2]) {
   } 
 }
 
+// For each process name, get associated pids
 int getpids(char procname[128][255], int index, FILE *LOGFILE) {
   char cmdline[269]; // for creating pgrep command (255 plus extra for command)
   int count = 0;
@@ -257,11 +260,13 @@ int getpids(char procname[128][255], int index, FILE *LOGFILE) {
       fflush(LOGFILE);
       memcpy(alreadyreported[index], procname[index], 255);
     }
+  } else {
+    memcpy(alreadyreported[index], " ", 255);
   }
   return count;
 }
 
-
+// Read in config file
 int readconfigfile(char *cmdarg) {
   int count = 0;
   FILE *f = fopen(cmdarg, "r");
@@ -273,7 +278,7 @@ int readconfigfile(char *cmdarg) {
   return count;
 }
 
-// kill any previous instances of procnanny
+// Kill any previous instances of procnanny
 void killprevprocnanny() {
   char pgrepcmd[20]; // for creating pgrep command (255 plus extra for command)
   FILE *pni;

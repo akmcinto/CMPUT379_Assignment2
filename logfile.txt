@@ -1,13 +1,22 @@
-[Tue Nov 10 15:45:34 2015] Info: Parent process is PID 6014
-[Tue Nov 10 15:45:34 2015] Info: No 'testprog' process found.
-[Tue Nov 10 15:45:34 2015] Info: Initializing monitoring of process vim (PID 6012).
-[Tue Nov 10 15:45:50 2015] Action: PID 6012 (vim) killed after exceeding 15 seconds.
-[Tue Nov 10 15:45:50 2015] Info: No 'vim' process found.
-[Tue Nov 10 15:46:10 2015] Info: Initializing monitoring of process vim (PID 6059).
-[Tue Nov 10 15:46:25 2015] Action: PID 6059 (vim) killed after exceeding 15 seconds.
-[Tue Nov 10 15:46:25 2015] Info: Caught SIGHUP.  Configuration file 'a2_test_file' re-read.
-[Tue Nov 10 15:46:30 2015] Info: Initializing monitoring of process vim (PID 6080).
-[Tue Nov 10 15:46:35 2015] Info: Initializing monitoring of process vim (PID 6085).
-[Tue Nov 10 15:46:40 2015] Action: PID 6080 (vim) killed after exceeding 10 seconds.
-[Tue Nov 10 15:46:45 2015] Action: PID 6085 (vim) killed after exceeding 10 seconds.
-[Tue Nov 10 15:46:57 2015] Info: Caught SIGINT.  Exiting cleanly. 4 process(es) killed.
+[Tue Nov 10 17:35:49 2015] Info: Parent process is PID 7230
+[Tue Nov 10 17:35:49 2015] Info: No 'testprog' process found.
+[Tue Nov 10 17:35:49 2015] Info: Initializing monitoring of process vim (PID 7185).
+[Tue Nov 10 17:35:49 2015] Info: Initializing monitoring of process vim (PID 7229).
+[Tue Nov 10 17:35:49 2015] Info: No 'gnome-language-selector' process found.
+[Tue Nov 10 17:35:49 2015] Info: No 'gnome-sudoku' process found.
+[Tue Nov 10 17:35:59 2015] Action: PID 7185 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 17:35:59 2015] Action: PID 7229 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 17:35:59 2015] Info: Initializing monitoring of process testprog (PID 7251).
+[Tue Nov 10 17:35:59 2015] Info: No 'vim' process found.
+[Tue Nov 10 17:36:14 2015] Info: No 'testprog' process found.
+[Tue Nov 10 17:36:14 2015] Info: Initializing monitoring of process gnome-sudoku (PID 7277).
+[Tue Nov 10 17:36:29 2015] Action: PID 7277 (gnome-sudoku) killed after exceeding 12 seconds.
+[Tue Nov 10 17:36:29 2015] Info: No 'gnome-sudoku' process found.
+[Tue Nov 10 17:36:34 2015] Info: Initializing monitoring of process vim (PID 7312).
+[Tue Nov 10 17:36:44 2015] Action: PID 7312 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 17:36:44 2015] Info: No 'vim' process found.
+[Tue Nov 10 17:36:54 2015] Info: Caught SIGHUP.  Configuration file 'a2_test_file' re-read.
+[Tue Nov 10 17:37:10 2015] Info: Initializing monitoring of process vim (PID 7381).
+[Tue Nov 10 17:37:11 2015] Info: Caught SIGHUP.  Configuration file 'a2_test_file' re-read.
+[Tue Nov 10 17:37:21 2015] Action: PID 7381 (vim) killed after exceeding 10 seconds.
+[Tue Nov 10 17:37:39 2015] Info: Caught SIGINT.  Exiting cleanly. 5 process(es) killed.
